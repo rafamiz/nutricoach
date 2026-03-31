@@ -81,6 +81,14 @@ export async function processWhatsAppMessage(
   return { response, formattedReply };
 }
 
+function inferMealTypeFromUTC(): 'breakfast' | 'lunch' | 'snack' | 'dinner' {
+  const hour = new Date().getUTCHours();
+  if (hour < 10) return 'breakfast';
+  if (hour < 15) return 'lunch';
+  if (hour < 18) return 'snack';
+  return 'dinner';
+}
+
 async function handleIntentSideEffects(
   user: User,
   response: AIResponse,
@@ -91,10 +99,12 @@ async function handleIntentSideEffects(
   switch (response.intent) {
     case 'log_meal': {
       const meal = response as LogMealResponse;
+      const mealType = meal.meal_type || inferMealTypeFromUTC();
+      const mealDescription = description || meal.message;
       await logMeal({
         user_id: user.id,
-        meal_type: meal.meal_type,
-        description,
+        meal_type: mealType,
+        description: mealDescription,
         foods: meal.foods,
         calories: meal.total_calories,
         protein_g: meal.total_protein_g,

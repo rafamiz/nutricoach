@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createUser, getServiceClient } from '@nutricoach/core';
+import { createUser, getServiceClient, createDefaultReminders } from '@nutricoach/core';
 import type { Goal, Gender, ActivityLevel, DietaryPreference } from '@nutricoach/core';
 
 // ─── Nutrition helpers (inlined to avoid server-only imports client-side) ─────
@@ -156,14 +156,7 @@ export async function POST(req: NextRequest) {
       trial_ends_at: plan && plan !== 'free' ? trialEndsAt : null,
     });
 
-  // Create default reminders for new user
-  const defaultReminders = [
-    { user_id: user.id, type: 'meal', label: 'desayuno', remind_at_utc: '11:00', days_of_week: [0,1,2,3,4,5,6], enabled: true },
-    { user_id: user.id, type: 'meal', label: 'almuerzo', remind_at_utc: '16:00', days_of_week: [0,1,2,3,4,5,6], enabled: true },
-    { user_id: user.id, type: 'meal', label: 'cena', remind_at_utc: '23:00', days_of_week: [0,1,2,3,4,5,6], enabled: true },
-    { user_id: user.id, type: 'water', label: 'agua', remind_at_utc: '18:00', days_of_week: [0,1,2,3,4,5,6], enabled: true },
-  ];
-  await sb.from('reminders').insert(defaultReminders);
+  await createDefaultReminders(user.id);
 
   return NextResponse.json({
     user_id: user.id,

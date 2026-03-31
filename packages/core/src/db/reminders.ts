@@ -41,11 +41,10 @@ export async function getDueReminders(): Promise<(Reminder & { phone: string; fi
 
 export async function createDefaultReminders(userId: string) {
   const defaults = [
-    { type: 'meal', label: 'Breakfast reminder', time_utc: '12:00', days: [1, 2, 3, 4, 5, 6, 7] },
-    { type: 'meal', label: 'Lunch reminder', time_utc: '17:00', days: [1, 2, 3, 4, 5, 6, 7] },
-    { type: 'meal', label: 'Dinner reminder', time_utc: '23:00', days: [1, 2, 3, 4, 5, 6, 7] },
+    { type: 'meal', label: 'Breakfast reminder', time_utc: '08:00', days: [1, 2, 3, 4, 5, 6, 7] },
+    { type: 'meal', label: 'Lunch reminder', time_utc: '13:00', days: [1, 2, 3, 4, 5, 6, 7] },
+    { type: 'meal', label: 'Dinner reminder', time_utc: '20:00', days: [1, 2, 3, 4, 5, 6, 7] },
     { type: 'water', label: 'Water reminder', time_utc: '15:00', days: [1, 2, 3, 4, 5, 6, 7] },
-    { type: 'weigh_in', label: 'Weekly weigh-in', time_utc: '13:00', days: [1] },
   ];
 
   await getServiceClient()
