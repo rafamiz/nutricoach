@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import twilio from 'twilio';
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://nutricoach-one.vercel.app';
+import { getUserByPhone, isSubscriptionActive } from '@nutricoach/core';
 
 function twiml(message: string): NextResponse {
   const xml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${message}</Message></Response>`;
@@ -13,11 +11,8 @@ function twiml(message: string): NextResponse {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
   const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN!;
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL!;
 
   try {
     // Parse form-encoded body from Twilio
@@ -36,52 +31,29 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract phone number (strip "whatsapp:" prefix)
-    const rawFrom = body.From || '';
-    const phone = rawFrom.replace('whatsapp:', '').trim();
-    const messageBody = body.Body || '';
+    const phone = (body.From || '').replace('whatsapp:', '').trim();
 
     if (!phone) {
       return twiml('No se pudo identificar tu número.');
     }
 
-    // Look up user by phone
-    const { data: user } = await supabase
-      .from('users')
-      .select('id, onboarding_completed')
-      .eq('phone', phone)
-      .single();
+    // Look up user in Supabase by phone number
+    const user = await getUserByPhone(phone);
 
-    if (!user || !user.onboarding_completed) {
-      // No user or onboarding not completed → send onboarding link
+    // Check active subscription if user exists
+    const hasActiveSub = user ? await isSubscriptionActive(user.id) : false;
+
+    if (!user || !hasActiveSub) {
+      // No user or no active subscription → welcome message + onboarding link
       const onboardingUrl = `${APP_URL}/onboarding?phone=${encodeURIComponent(phone)}`;
       return twiml(
         `👋 ¡Hola! Soy tu coach nutricional con IA.\n\n` +
-        `Para empezar, necesito conocerte un poco. Completá tu perfil acá (2 minutos):\n\n` +
-        `${onboardingUrl}\n\n` +
-        `Después de eso, mandame una foto de tu comida y te digo los macros al toque 💪`
+        `Para empezar, completá tu perfil acá:\n${onboardingUrl}`
       );
     }
 
-    // Check active subscription
-    const { data: sub } = await supabase
-      .from('subscriptions')
-      .select('status, plan')
-      .eq('user_id', user.id)
-      .in('status', ['active', 'trialing'])
-      .single();
-
-    if (!sub && true) {
-      // Has account but check if free plan is allowed
-      // For now, allow free users with limited responses
-    }
-
-    // Active user → placeholder AI response
-    return twiml(
-      `¡Recibí tu mensaje! 🤖\n\n` +
-      `Dijiste: "${messageBody.substring(0, 100)}"\n\n` +
-      `La función de coach por IA viene pronto. Mientras tanto, podés ver tu progreso en:\n` +
-      `${APP_URL}/dashboard`
-    );
+    // Active subscription → placeholder response
+    return twiml('¡Recibí tu mensaje! La función de coach por IA viene pronto.');
   } catch (error) {
     console.error('WhatsApp webhook error:', error);
     return twiml('Hubo un error procesando tu mensaje. Intentá de nuevo en unos minutos.');
