@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 // ─── Types (mirror packages/core/src/types/user.ts) ─────────────────────────
 type Goal = 'lose_weight' | 'gain_muscle' | 'maintain' | 'eat_healthier';
@@ -254,6 +255,8 @@ function NumberInput({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function OnboardingPage() {
+  const searchParams = useSearchParams();
+  const phoneFromWhatsApp = searchParams.get('phone') || '';
   const [data, setData] = useState<OnboardingData>({ firstName: '', struggles: [] });
   const [stepId, setStepId] = useState<StepId>('welcome');
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -376,7 +379,7 @@ export default function OnboardingPage() {
         unit_system: 'metric',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         plan: selectedPlan,
-        // phone is optional — omitted, handled server-side
+        phone: phoneFromWhatsApp || undefined,
       };
 
       const res = await fetch('/api/onboarding', {
@@ -388,13 +391,20 @@ export default function OnboardingPage() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         console.error('Save failed:', err);
+        alert('Hubo un error guardando tus datos. Intentá de nuevo.');
+        setIsSubmitting(false);
+        return;
       }
 
-      // Redirect to dashboard regardless (demo-friendly)
-      window.location.href = '/dashboard';
+      // Show success - if came from WhatsApp, tell them to go back
+      if (phoneFromWhatsApp) {
+        setStepId('success' as StepId);
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (err) {
       console.error(err);
-      window.location.href = '/dashboard';
+      alert('Error de conexión. Intentá de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
@@ -1112,7 +1122,19 @@ export default function OnboardingPage() {
       }
 
       default:
-        return null;
+        // Success screen after free plan signup from WhatsApp
+        return (
+          <div className="flex flex-col items-center justify-center flex-1 gap-6 px-6 text-center">
+            <div className="text-6xl">🎉</div>
+            <h2 className="text-2xl font-extrabold text-white">¡Todo listo!</h2>
+            <p className="text-gray-400 leading-relaxed max-w-xs">
+              Tu cuenta está creada. Volvé a WhatsApp y mandame un mensaje para empezar a usar tu coach nutricional.
+            </p>
+            <div className="p-4 rounded-2xl border border-gray-700 bg-gray-800/50 w-full max-w-xs">
+              <p className="text-sm text-gray-300">📱 Mandá cualquier mensaje al bot por WhatsApp y te respondo al toque</p>
+            </div>
+          </div>
+        );
     }
   };
 
@@ -1124,38 +1146,4 @@ export default function OnboardingPage() {
       <div className="mx-auto max-w-md min-h-screen flex flex-col">
         {/* Header: back button + progress bar + step tag */}
         {stepId !== 'welcome' && (
-          <div className="flex flex-col px-5 pt-6 pb-3 gap-2">
-            <div className="flex items-center gap-3">
-              {showBack && (
-                <button
-                  onClick={goBack}
-                  className="flex-shrink-0 w-9 h-9 rounded-full bg-gray-900 border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
-                  aria-label="Volver"
-                >
-                  ←
-                </button>
-              )}
-              <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${progress}%`, backgroundColor: ACCENT }}
-                />
-              </div>
-              <span className="flex-shrink-0 text-xs text-gray-500 w-8 text-right">{progress}%</span>
-            </div>
-            {STEP_LABELS[stepId] && (
-              <p className="text-xs font-medium" style={{ color: ACCENT }}>
-                {STEP_LABELS[stepId]}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Step content */}
-        <div className="flex-1 px-5 py-4 pb-8 overflow-y-auto">
-          {renderStep()}
-        </div>
-      </div>
-    </div>
-  );
-}
+          <div className="flex flex-col px-5 pt-6 

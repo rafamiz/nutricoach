@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
     unit_system?: string;
     timezone?: string;
     plan?: 'free' | 'monthly' | 'yearly';
+    phone?: string;
   };
 
   if (!first_name || !gender || !date_of_birth || !height_cm || !weight_kg || !activity_level || !goal) {
@@ -108,9 +109,8 @@ export async function POST(req: NextRequest) {
   const macros = calcMacros(dailyCal, goal);
 
   const userData = {
-    // Phone not collected during web onboarding — use time-based placeholder
-    phone: `web_${Date.now()}`,
-    phone_verified: false,
+    phone: (body.phone as string) || `web_${Date.now()}`,
+    phone_verified: !!(body.phone),
     first_name,
     gender,
     date_of_birth,
