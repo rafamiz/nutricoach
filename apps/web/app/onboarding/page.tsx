@@ -91,19 +91,30 @@ function calcDailyCal(tdee: number, goal: Goal, weeklyKg?: number): number {
   return Math.min(calories, 4500);
 }
 
-function calcMacros(cal: number, goal: Goal) {
-  const r: Record<Goal, [number, number, number]> = {
-    lose_weight: [0.4, 0.3, 0.3],
-    gain_muscle: [0.35, 0.4, 0.25],
-    maintain: [0.3, 0.4, 0.3],
-    eat_healthier: [0.3, 0.4, 0.3],
+function calcMacros(cal: number, goal: Goal, weightKg: number) {
+  // Protein: g per kg body weight
+  const proteinPerKg: Record<Goal, number> = {
+    lose_weight: 2.0,
+    gain_muscle: 2.2,
+    maintain: 1.6,
+    eat_healthier: 1.6,
   };
-  const [p, c, f] = r[goal];
-  return {
-    protein: Math.round((cal * p) / 4),
-    carbs: Math.round((cal * c) / 4),
-    fat: Math.round((cal * f) / 9),
+  const protein = Math.round(proteinPerKg[goal] * weightKg);
+  const remainingCal = Math.max(0, cal - protein * 4);
+
+  // Remaining calories split between carbs and fat (normalized to 100%)
+  const splits: Record<Goal, [number, number]> = {
+    lose_weight: [0.4, 0.3],
+    gain_muscle: [0.5, 0.25],
+    maintain: [0.45, 0.30],
+    eat_healthier: [0.45, 0.30],
   };
+  const [carbRatio, fatRatio] = splits[goal];
+  const total = carbRatio + fatRatio;
+  const carbs = Math.round((remainingCal * (carbRatio / total)) / 4);
+  const fat = Math.round((remainingCal * (fatRatio / total)) / 9);
+
+  return { protein, carbs, fat };
 }
 
 function computeResults(data: OnboardingData): NutritionResults | null {
@@ -113,7 +124,7 @@ function computeResults(data: OnboardingData): NutritionResults | null {
   const age = calcAge(data.dateOfBirth);
   const tdee = calcTDEE(data.gender, data.weightKg, data.heightCm, age, data.activityLevel);
   const calories = calcDailyCal(tdee, data.goal, data.weeklyGoalKg);
-  const { protein, carbs, fat } = calcMacros(calories, data.goal);
+  const { protein, carbs, fat } = calcMacros(calories, data.goal, data.weightKg);
   return { tdee, calories, protein, carbs, fat };
 }
 
@@ -881,11 +892,34 @@ export default function OnboardingPage() {
           eat_healthier: 'Comer más sano 🥗',
         };
 
-        const weeklyProjection = data.goal === 'lose_weight'
-          ? `−${data.weeklyGoalKg ?? 0.5} kg/semana`
-          : data.goal === 'gain_muscle'
-          ? '+0.25 kg de músculo/semana'
-          : null;
+        const calMin = Math.round(results.tdee * 0.93);
+        const calMax = Math.round(results.tdee * 1.07);
+        const gaugeRangeSpan = calMax - calMin;
+        const gaugePct = gaugeRangeSpan > 0
+          ? Math.min(100, Math.max(0, ((results.calories - calMin) / gaugeRangeSpan) * 100))
+          : 50;
+
+        const totalMacroCal = results.protein * 4 + results.carbs * 4 + results.fat * 9;
+        const macros = [
+          {
+            label: 'Proteínas',
+            grams: results.protein,
+            color: '#14b8a6',
+            pct: totalMacroCal > 0 ? Math.round((results.protein * 4 / totalMacroCal) * 100) : 0,
+          },
+          {
+            label: 'Carbohidratos',
+            grams: results.carbs,
+            color: '#f59e0b',
+            pct: totalMacroCal > 0 ? Math.round((results.carbs * 4 / totalMacroCal) * 100) : 0,
+          },
+          {
+            label: 'Grasas',
+            grams: results.fat,
+            color: '#f43f5e',
+            pct: totalMacroCal > 0 ? Math.round((results.fat * 9 / totalMacroCal) * 100) : 0,
+          },
+        ];
 
         return (
           <div className="flex flex-col gap-5">
@@ -899,58 +933,59 @@ export default function OnboardingPage() {
               )}
             </div>
 
-            {/* Main calorie card */}
-            <div className="rounded-2xl p-5 flex flex-col items-center gap-1" style={{ background: `linear-gradient(135deg, #1a1a1a, #0d0d0d)`, border: `2px solid ${ACCENT}33` }}>
-              <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">Calorías diarias</p>
-              <p className="text-5xl font-black" style={{ color: ACCENT }}>{results.calories.toLocaleString()}</p>
-              <p className="text-xs text-gray-500">kcal / día — TDEE base: {results.tdee.toLocaleString()} kcal</p>
+            {/* Calorie card with range gauge */}
+            <div className="rounded-2xl p-5 flex flex-col items-center gap-3" style={{ background: 'linear-gradient(135deg, #1a1a1a, #0d0d0d)', border: `2px solid ${ACCENT}33` }}>
+              <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">Calorías estimadas</p>
+              <p className="text-5xl font-black" style={{ color: ACCENT }}>
+                ~{results.calories.toLocaleString()}
+              </p>
+              <p className="text-xs text-gray-500">kcal/día</p>
+
+              {/* Range gauge */}
+              <div className="w-full flex flex-col gap-1 mt-1">
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>{calMin.toLocaleString()}</span>
+                  <span className="text-gray-400">rango diario</span>
+                  <span>{calMax.toLocaleString()}</span>
+                </div>
+                <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ backgroundColor: '#2a2a2a' }}>
+                  <div
+                    className="absolute top-0 left-0 h-full rounded-full transition-all duration-700"
+                    style={{ width: `${gaugePct}%`, background: `linear-gradient(90deg, ${ACCENT}88, ${ACCENT})` }}
+                  />
+                  {/* Marker dot */}
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-white shadow-lg transition-all duration-700"
+                    style={{ left: `calc(${gaugePct}% - 8px)`, backgroundColor: ACCENT }}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Macro breakdown */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: 'Proteínas', value: results.protein, unit: 'g', color: '#ff6b35' },
-                { label: 'Carbos', value: results.carbs, unit: 'g', color: '#4ade80' },
-                { label: 'Grasas', value: results.fat, unit: 'g', color: '#facc15' },
-              ].map(m => (
-                <div key={m.label} className="rounded-2xl bg-gray-900 border border-gray-800 p-3 flex flex-col items-center gap-1">
-                  <p className="text-2xl font-black" style={{ color: m.color }}>{m.value}</p>
-                  <p className="text-xs text-gray-400">{m.unit} {m.label}</p>
+            {/* Macro bars */}
+            <div className="rounded-2xl p-4 flex flex-col gap-4" style={{ background: '#111', border: '1px solid #222' }}>
+              <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">Macronutrientes</p>
+              {macros.map(m => (
+                <div key={m.label} className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: m.color }} />
+                      <span className="text-sm font-medium text-white">{m.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white">{m.grams}g</span>
+                      <span className="text-xs text-gray-500">{m.pct}%</span>
+                    </div>
+                  </div>
+                  <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#2a2a2a' }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${m.pct}%`, backgroundColor: m.color }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
-
-            {/* Weekly projection */}
-            {weeklyProjection && (
-              <div className="flex items-center gap-3 rounded-2xl bg-gray-900 border border-gray-700 p-4">
-                <span className="text-2xl">📈</span>
-                <div>
-                  <p className="text-sm font-semibold text-white">Proyección semanal</p>
-                  <p className="text-xs text-gray-400">{weeklyProjection} siguiendo el plan</p>
-                </div>
-              </div>
-            )}
-
-            {/* Struggles addressed */}
-            {data.struggles.length > 0 && (
-              <div className="rounded-2xl bg-gray-900 border border-gray-700 p-4">
-                <p className="text-xs text-gray-400 font-medium mb-2">Tu plan aborda específicamente:</p>
-                <div className="flex flex-wrap gap-2">
-                  {data.struggles.slice(0, 3).map(s => (
-                    <span key={s} className="rounded-full px-3 py-1 text-xs font-medium" style={{ backgroundColor: `${ACCENT}22`, color: ACCENT }}>
-                      {{
-                        consistency: '📅 Constancia',
-                        portions: '⚖️ Porciones',
-                        junk_food: '🍕 Antojos',
-                        motivation: '😤 Motivación',
-                        time: '⏱️ Tiempo',
-                        knowledge: '🤔 Conocimiento',
-                      }[s] ?? s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Testimonial */}
             <div className="flex items-start gap-3 rounded-2xl bg-gray-900 border border-gray-800 p-4">
