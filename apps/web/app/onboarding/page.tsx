@@ -892,13 +892,6 @@ export default function OnboardingPage() {
           eat_healthier: 'Comer más sano 🥗',
         };
 
-        const calMin = Math.round(results.tdee * 0.93);
-        const calMax = Math.round(results.tdee * 1.07);
-        const gaugeRangeSpan = calMax - calMin;
-        const gaugePct = gaugeRangeSpan > 0
-          ? Math.min(100, Math.max(0, ((results.calories - calMin) / gaugeRangeSpan) * 100))
-          : 50;
-
         const totalMacroCal = results.protein * 4 + results.carbs * 4 + results.fat * 9;
         const macros = [
           {
@@ -933,33 +926,13 @@ export default function OnboardingPage() {
               )}
             </div>
 
-            {/* Calorie card with range gauge */}
+            {/* Calorie card */}
             <div className="rounded-2xl p-5 flex flex-col items-center gap-3" style={{ background: 'linear-gradient(135deg, #1a1a1a, #0d0d0d)', border: `2px solid ${ACCENT}33` }}>
               <p className="text-xs text-gray-400 uppercase tracking-widest font-medium">Calorías estimadas</p>
               <p className="text-5xl font-black" style={{ color: ACCENT }}>
                 ~{results.calories.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500">kcal/día</p>
-
-              {/* Range gauge */}
-              <div className="w-full flex flex-col gap-1 mt-1">
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>{calMin.toLocaleString()}</span>
-                  <span className="text-gray-400">rango diario</span>
-                  <span>{calMax.toLocaleString()}</span>
-                </div>
-                <div className="relative w-full h-3 rounded-full overflow-hidden" style={{ backgroundColor: '#2a2a2a' }}>
-                  <div
-                    className="absolute top-0 left-0 h-full rounded-full transition-all duration-700"
-                    style={{ width: `${gaugePct}%`, background: `linear-gradient(90deg, ${ACCENT}88, ${ACCENT})` }}
-                  />
-                  {/* Marker dot */}
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-white shadow-lg transition-all duration-700"
-                    style={{ left: `calc(${gaugePct}% - 8px)`, backgroundColor: ACCENT }}
-                  />
-                </div>
-              </div>
             </div>
 
             {/* Macro bars */}
