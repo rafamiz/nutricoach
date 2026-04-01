@@ -1,4 +1,4 @@
-export * from './ai/gemini';
+export * from './ai/claude';
 export * from './ai/prompts';
 export * from './ai/parser';
 export * from './nutrition/tdee';

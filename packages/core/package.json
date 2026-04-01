@@ -9,6 +9,7 @@
     "lint": "echo 'no lint configured'"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
     "@google/generative-ai": "^0.21.0",
     "@supabase/supabase-js": "^2.47.0",
     "twilio": "^5.4.0"

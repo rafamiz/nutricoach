@@ -2,12 +2,44 @@ import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 import { getDueReminders, markReminderSent } from '@nutricoach/core';
 
-const REMINDER_MESSAGES: Record<string, string> = {
-  meal: '🍽️ ¡Hora de comer! Mandame una foto de tu comida y te digo los macros',
-  water: '💧 ¿Ya tomaste agua? Acordate de hidratarte',
-  weigh_in: '⚖️ ¡Hora de pesarte! Mandame tu peso de hoy',
-  custom: '{{label}}',
-};
+const MEAL_REMINDER_POOL = [
+  '🍽️ ¡Hora de comer! Mandame una foto de tu comida y te cuento los macros 📸',
+  '🕐 Se acerca tu hora de comer, {{name}}! Después avisame qué comiste 😄',
+  'Che {{name}}, ya casi es hora de tu comida. Acordate de registrarla! 🍴',
+  '{{name}}, ¿ya pensaste qué vas a comer? Mandame la foto después 📸',
+  '¡Hola {{name}}! Tu comida se acerca 🕐 Después contame qué comiste!',
+];
+
+const WATER_REMINDER_POOL = [
+  '💧 ¿Ya tomaste agua? Acordate de hidratarte bien hoy',
+  '{{name}}, ¿cómo vas con el agua? Tomá un vasito ahora 💦',
+  '¡Hidratación check! 💧 ¿Cuánta agua llevás hoy, {{name}}?',
+  'Che {{name}}, no te olvides del agua 💧 Es clave para tus objetivos',
+];
+
+const WEIGH_IN_REMINDER_POOL = [
+  '⚖️ ¡Hora de pesarte! Mandame tu peso de hoy',
+  '{{name}}, ¿te pesaste hoy? Mandame el número para registrarlo ⚖️',
+  'Buen momento para subirte a la balanza, {{name}}! ⚖️',
+];
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function buildReminderMessage(type: string, name: string, label?: string | null): string {
+  let template: string;
+  if (type === 'meal') {
+    template = pickRandom(MEAL_REMINDER_POOL);
+  } else if (type === 'water') {
+    template = pickRandom(WATER_REMINDER_POOL);
+  } else if (type === 'weigh_in') {
+    template = pickRandom(WEIGH_IN_REMINDER_POOL);
+  } else {
+    template = label || 'Recordatorio';
+  }
+  return template.replace(/\{\{name\}\}/g, name);
+}
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
@@ -29,8 +61,8 @@ export async function GET(req: NextRequest) {
   for (const reminder of reminders) {
     if (reminder.last_sent?.startsWith(today)) continue;
 
-    const template = REMINDER_MESSAGES[reminder.type] || REMINDER_MESSAGES.custom;
-    const body = template.replace('{{label}}', reminder.label || 'Recordatorio');
+    const name = reminder.first_name || 'crack';
+    const body = buildReminderMessage(reminder.type, name, reminder.label);
 
     try {
       await client.messages.create({

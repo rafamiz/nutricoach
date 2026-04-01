@@ -1,6 +1,6 @@
 import { AIResponse, LogMealResponse, LogWaterResponse, LogWeightResponse, LogExerciseResponse } from '../types/ai-response';
 import { User, UserContext } from '../types/user';
-import { analyzeMessage, ChatMessage } from '../ai/gemini';
+import { analyzeMessage, ChatMessage } from '../ai/claude';
 import { formatWhatsAppReply } from '../whatsapp/formatter';
 import { logMeal, getTodayTotals } from '../db/meals';
 import { logWater, getTodayWater } from '../db/water';

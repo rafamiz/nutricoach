@@ -1,5 +1,5 @@
 import { getServiceClient } from './client';
-import { ChatMessage } from '../ai/gemini';
+import { ChatMessage } from '../ai/claude';
 
 export async function saveMessage(
   userId: string,
@@ -31,7 +31,7 @@ export async function getRecentMessages(userId: string, limit = 10): Promise<Cha
   if (!data) return [];
 
   return data.reverse().map((msg) => ({
-    role: msg.role === 'user' ? 'user' as const : 'model' as const,
+    role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
     content: msg.content,
   }));
 }
